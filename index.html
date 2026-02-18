@@ -1,0 +1,1986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src * 'self' data: https: file:; script-src * 'unsafe-inline'; style-src * 'unsafe-inline' https: file:; font-src * https: file:;">
+    <title>API Analysis</title>
+    <link rel="stylesheet" href="github-dark.min.css" onerror="console.error('Failed to load Highlight.js CSS:', this.href)">
+    <link rel="stylesheet" href="katex.min.css" onerror="console.error('Failed to load KaTeX CSS:', this.href)">
+    <script>
+        // Highlighting is done on the extension side during markdown parsing.
+        // No browser-side initialization of highlight.js is needed.
+
+        // Copy to clipboard function
+        function copyToClipboard(button) {
+            const codeBlock = button.closest('.code-block');
+            const code = codeBlock.querySelector('code').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.backgroundColor = '#4CAF50';
+                button.style.color = 'white';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.backgroundColor = '';
+                    button.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+    </script>
+    <style>
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+        img.emoji {
+            height: 1em;
+            width: 1em;
+            margin: 0 .05em 0 .1em;
+            vertical-align: -0.1em;
+            display: inline;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-weight: 600;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            line-height: 1.25;
+        }
+        h1 { 
+            font-size: 2em; 
+            border-bottom: 1px solid #eaecef; 
+            padding-bottom: 0.3em;
+            margin-top: 0.67em 0;
+        }
+        h2 { 
+            font-size: 1.5em; 
+            border-bottom: 1px solid #eaecef; 
+            padding-bottom: 0.3em;
+            margin-top: 1.5em;
+        }
+        h3 { 
+            font-size: 1.25em; 
+            margin-top: 1.25em;
+        }
+        h4 { 
+            font-size: 1em; 
+            margin-top: 1em;
+        }
+        a { 
+            color: #0366d6; 
+            text-decoration: none; 
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+        strong { 
+            font-weight: 600; 
+        }
+        pre {
+            background-color:rgb(9, 7, 10);
+            overflow: auto;
+            margin: 0;
+        }
+        code {
+            font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+            padding: 0.2em 0.4em;
+            font-size: 90%;
+        }
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+        .code-block {
+            position: relative;
+            background-color:rgb(9, 7, 10);
+            border-radius: 6px;
+            margin: 1em 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 10px;
+            background-color:rgb(32, 30, 43);
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+        .language {
+            color: #efe9e9;
+            font-size: 0.9em;
+            font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+        .copy-button {
+            padding: 4px 8px;
+            font-size: 0.9em;
+            color: #efe9e9;
+            background-color: transparent;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-button:hover {
+            background-color: #e9e9e9;
+            border-color: #ccc;
+        }
+        blockquote {
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }
+        ul, ol {
+            padding-left: 2em;
+        }
+        table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            width: 100%;
+            overflow: auto;
+            margin-bottom: 16px;
+        }
+        table th {
+            font-weight: 600;
+        }
+        table th, table td {
+            padding: 6px 13px;
+            border: 1px solid var(--vscode-editorGroup-border, #dfe2e5);
+        }
+        table tr {
+            background-color: var(--vscode-editor-background, #fff);
+            border-top: 1px solid var(--vscode-editorGroup-border, #c6cbd1);
+        }
+        table tr:nth-child(2n) {
+            background-color: var(--vscode-list-hoverBackground, #f6f8fa);
+        }
+        img {
+            max-width: 100%;
+            box-sizing: content-box;
+        }
+        /* GitHub-style Alerts */
+        .markdown-alert {
+            padding: 0.25rem 1rem;
+            margin-bottom: 1rem;
+            color: inherit;
+            border-left: 0.25em solid #dfe2e5;
+            border-radius: 6px;
+        }
+        .markdown-alert-title {
+            display: flex;
+            align-items: center;
+            font-weight: 500;
+            line-height: 1;
+        }
+        .markdown-alert-title svg {
+            margin-right: 8px;
+        }
+        .markdown-alert-note { border-left-color: #0969da; }
+        .markdown-alert-note .markdown-alert-title { color: #0969da; }
+        .markdown-alert-tip { border-left-color: #1a7f37; }
+        .markdown-alert-tip .markdown-alert-title { color: #1a7f37; }
+        .markdown-alert-important { border-left-color: #8250df; }
+        .markdown-alert-important .markdown-alert-title { color: #8250df; }
+        .markdown-alert-warning { border-left-color: #9a6700; }
+        .markdown-alert-warning .markdown-alert-title { color: #9a6700; }
+        .markdown-alert-caution { border-left-color: #d1242f; }
+        .markdown-alert-caution .markdown-alert-title { color: #d1242f; }
+
+        /* Footnotes */
+        .footnotes {
+            font-size: 12px;
+            color: #6a737d;
+            border-top: 1px solid #dfe2e5;
+            margin-top: 24px;
+        }
+        .footnotes ol {
+            padding-left: 16px;
+        }
+        .footnote-backref {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            margin-left: 4px;
+        }
+
+        /* Task Lists */
+        ul.contains-task-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        .task-list-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 4px;
+        }
+        .task-list-item input[type="checkbox"] {
+            margin: 0.25em 0.5em 0 0;
+            vertical-align: middle;
+        }
+
+        /* Front Matter */
+        .front-matter {
+            margin-bottom: 24px;
+            border: 1px solid var(--vscode-editorGroup-border, #dfe2e5);
+            border-radius: 6px;
+            padding: 12px;
+            background-color: var(--vscode-list-hoverBackground, #f6f8fa);
+        }
+        .front-matter table {
+            margin-bottom: 0;
+            border: none;
+        }
+        .front-matter table tr {
+            background-color: transparent;
+            border: none;
+        }
+        .front-matter table td {
+            border: none;
+            padding: 4px 8px;
+        }
+        .front-matter-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground, #6a737d);
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="mrhiwash-api-analysis">MrHiWash API analysis</h1>
+<p>Rant : <strike>wasted</strike> on ~11+ spin-only orders(no water wastage) and accidently deleted my account just to capture user.cancelAccount api, now i cant use washer !!  </p>
+<h5 id="are-you-ready-lets-get-you-started">are you ready? lets get you started</h5>
+<p><img src="https://giffiles.alphacoders.com/142/142052.gif" alt="alt text" />
+<img src="https://media.tenor.com/m1Mr-khUDVgAAAAC/anime-hacking.gif" alt="alt text" /><br /><br />
+<strong>Base URL:</strong> <code>https://www.mrhiwash.com/GlobalWashCallApi/</code><br /><strong>Protocol:</strong> HTTPS GET POST<br /><strong>App ID:</strong> <code>hl7c87b100fc2143a</code><br /><strong>App Secret:</strong> <code>759fcd66ad674c80a250753bd7fd5fcb</code><br /><strong>API Version:</strong> <code>1.6</code></p>
+<hr />
+<h2 id="http-methods">HTTP Methods</h2>
+<p>All requests use the params as <strong>query string for GET</strong> or <strong>form-encoded body for POST</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>GET</th>
+<th>POST</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>common/user/queryCountryList.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/user/getLatestVersion.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/user/restoreAccount.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/login.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/register.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/requestVerifyCode.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/checkVerifyCode.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/checkPhoneOrEmail.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/user/retrievePassword.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>common/laundry/getNearbyLaundryList.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/laundry/getLaundryDetail.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/laundry/getLaundryDeviceList.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/laundry/getDeviceInfo.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/appAd/getAppAdInfo.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/system/analysisURL.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/common/quaryShowInvitation.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/common/quaryShowModule.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>common/common/queryNewFocusList.api</code></td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr>
+<td><code>api/user/getProfile.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/logout.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/updateUserEmail.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/updatePwd.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/updateUserName.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/setMessageNotification.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/updateAvatarImage.api</code></td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/getCouponList.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/getCouponCount.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/user/cancelAccount.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/message/queryAllAppMessage.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/message/queryAppMessageById.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/orderDevice.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/reserve.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/getUserOrderList.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/cancelOrder.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/getOrderDetail.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/sendVerifyCodeToDevice.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/vertify.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/getDeviceEndRuntimeByOrderId.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/startCleanProgram.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/orderWithCoupon.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/resetDevice.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/order/startDevice.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/pay/getPrepay.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/pay/queryOrderPaySuccess.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><code>api/alipay/alipayTradeQuery.api</code></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+</tbody></table>
+<hr />
+<h2 id="request-structure">Request Structure</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>charset</code></td>
+<td><code>UTF-8</code></td>
+<td>Fixed</td>
+</tr>
+<tr>
+<td><code>country</code></td>
+<td><code>US</code></td>
+<td>Fixed (observed)</td>
+</tr>
+<tr>
+<td><code>tokenId</code></td>
+<td>Auth token</td>
+<td>Empty string for unauthenticated APIs</td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>API method name</td>
+<td>e.g. <code>user.login</code></td>
+</tr>
+<tr>
+<td><code>sign</code></td>
+<td>SHA1withRSA signature</td>
+<td>Signed over encrypted bizcontent bytes</td>
+</tr>
+<tr>
+<td><code>format</code></td>
+<td><code>JSON</code></td>
+<td>Fixed</td>
+</tr>
+<tr>
+<td><code>timeZone</code></td>
+<td>Client timezone</td>
+<td>e.g. <code>GMT+05:30</code></td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>Language code</td>
+<td>e.g. <code>en</code></td>
+</tr>
+<tr>
+<td><code>nonce</code></td>
+<td>Request nonce</td>
+<td><code>Base64(MD5("appId=&lt;APP_ID&gt;&amp;appSecret=&lt;APP_SECRET&gt;&amp;timestamp=&lt;TIMESTAMP&gt;"))</code></td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td><code>1.6</code></td>
+<td>Fixed</td>
+</tr>
+<tr>
+<td><code>bizcontent</code></td>
+<td>Encrypted payload</td>
+<td>RSA encrypted JSON, Base64 encoded</td>
+</tr>
+<tr>
+<td><code>appId</code></td>
+<td><code>hl7c87b100fc2143a</code></td>
+<td>Fixed</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>GMT+8 timestamp</td>
+<td>Format: <code>yyyyMMddHHmmss</code></td>
+</tr>
+</tbody></table>
+<h3 id="bizcontent-generation">bizcontent Generation</h3>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">zsh</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-zsh">payload_json   = JSON.stringify(api_specific_params)   // compact, no spaces
+encrypted      = RSA_encrypt(payload_json, server_public_key)  // RSA/ECB/PKCS1Padding, 117-byte blocks
+bizcontent     = Base64(encrypted)
+sign           = Base64(SHA1withRSA(encrypted_bytes, client_private_key))</code></pre>
+                </div>
+            <h3 id="keys">Keys</h3>
+<p><strong>Server Public Key (encrypt bizcontent):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">zsh</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-zsh">MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCg0xP7ICNOo5QW2HFsiIt4PTFxD3aVys64GZWpX
+EzHROwxyqe2f1Jzbumof9oCSsBkCbY7FMFlYvwMNnFN+PwmbTxmiBCuYrcbLkRPHZmxSCVCt46e1
+PH7AsuVd6FbupyAAoPGAuFZA4yP3ksa+GkRN8+kKif1Asg/f3E+EWc4gwIDAQAB</code></pre>
+                </div>
+            <p><strong>Client APK Private Key (sign requests + decrypt responses):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">zsh</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-zsh">MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBAKp3BAOIv8nLompKBdCdJiZcNmeE5
+5642ION/RVpNej806OKkDtQTHW1ALACAZ3pXYNaNiimLJV9oEa2tdg6wDS5fUAiV4h6ehVpxh+Hm
+OzQRuIKSKjL/TjKYW/lpocK0VuSsDTCMY8VpI5fmFS1fHpkYMDmAXtODT/UBaPXvn9TAgMBAAEC
+gYA8LYfdN4l9U8Yif79NxiyRnjwWj3S1M8w7pQSTanD9r0OHmIMSbWaQpzV27T5k4N2CYXZ9Iyz
+aGV9bl2Ta0OLJJAfVn3h+LA98EcPV264HXbHfZUcZynDRw86oJt/v+4+4mMllz2w6/R9YD0/eN0
+w543zWiSHsyULBY6mAnMDAAQJBAPygcgewFnpjQhpp+2prLAKOwjsvyICI1o5QUUrriV5BTTAr+m
+na4yNrDVe8Tvz3RQjub1VJNKwxFmg9WEamNQECQQCsvbdctf0afnshVJ78NM0REb0eVtm6KhGhVE
+MwxVxDZ3fOfSltvOK5om501BU4lPOtsh6C/n7Op/6BnWd4S1BTAkEA5KWDD5o8fgEgby/FMghWCO
+qUuWUCH/O53YysRxbvebO43QSw3OYT9paJuQLiqupSPUcw1Qww9Dhpg2ciYq9EAQJAXZYDK3Vlh
+N8Vcn9YCyfIGgFURoWjPBriplbyeA/U5qe93t8sfMmixBPeZ+km/hqk0mv339xlcyzM1AglMKUNB
+QJBAJUdcV1Bg48PTbKTu2z1t+Hbu7Qx9ByPQSv/dNn2Pw+zYfnG7gzFTTgzInA4EOWzjBdclIZZ
+Lo/oGZL9ph5Nv+s=</code></pre>
+                </div>
+            <p><img src="https://media.tenor.com/6xELThZ6I9QAAAAM/book-anime.gif" alt="Alttext" /></p>
+<p><strong>no kity i haven't leaked my keys, every apk file have this embedded in it</strong></p>
+<h5 id="examples-in-python">Examples in python</h5>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">python</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">encrypt</span>(<span class="hljs-params">payload: <span class="hljs-built_in">dict</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+    data = json.dumps(payload, separators=(<span class="hljs-string">','</span>, <span class="hljs-string">':'</span>)).encode(<span class="hljs-string">'utf-8'</span>)
+    cipher = PKCS1_v1_5.new(PUBLIC_KEY)
+    encrypted = <span class="hljs-built_in">bytearray</span>()
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(data), <span class="hljs-number">117</span>):
+        encrypted.extend(cipher.encrypt(data[i:i+<span class="hljs-number">117</span>]))
+    <span class="hljs-keyword">return</span> base64.b64encode(<span class="hljs-built_in">bytes</span>(encrypted)).decode(<span class="hljs-string">'utf-8'</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">sign</span>(<span class="hljs-params">encrypted_b64: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+    h = SHA.new(base64.b64decode(encrypted_b64))
+    <span class="hljs-keyword">return</span> base64.b64encode(pkcs1_15.new(PRIVATE_KEY).sign(h)).decode(<span class="hljs-string">'utf-8'</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">nonce</span>(<span class="hljs-params">ts: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+    s = <span class="hljs-string">f"appId=<span class="hljs-subst">{APP_ID}</span>&amp;appSecret=<span class="hljs-subst">{APP_SECRET}</span>&amp;timestamp=<span class="hljs-subst">{ts}</span>"</span>
+    <span class="hljs-keyword">return</span> base64.b64encode(hashlib.md5(s.encode()).digest()).decode(<span class="hljs-string">'utf-8'</span>)
+
+<span class="hljs-keyword">def</span> <span class="hljs-title function_">decrypt</span>(<span class="hljs-params">encrypted_b64: <span class="hljs-built_in">str</span></span>) -&gt; <span class="hljs-built_in">str</span>:
+    data = base64.b64decode(encrypted_b64)
+    cipher = PKCS1_v1_5.new(PRIVATE_KEY)
+    out = <span class="hljs-built_in">bytearray</span>()
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(data), <span class="hljs-number">128</span>):
+        chunk = cipher.decrypt(data[i:i+<span class="hljs-number">128</span>], <span class="hljs-literal">None</span>)
+        <span class="hljs-keyword">if</span> chunk:
+            out.extend(chunk)
+    <span class="hljs-keyword">return</span> out.decode(<span class="hljs-string">'utf-8'</span>)</code></pre>
+                </div>
+            <hr />
+<h2 id="response-structure">Response Structure</h2>
+<p><strong>Success:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"retCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00000"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"retInfo"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"operation success"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"retData"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;Base64 RSA-encrypted response&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"sysTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1771131098219</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Error:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"retCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;code&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"retInfo"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;message&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"retData"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"sysTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1771131098219</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>retData decryption:</strong> <code>RSA_decrypt(Base64_decode(retData), client_private_key)</code> → JSON string</p>
+<p><strong>Known error codes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>00000</code></td>
+<td>Success</td>
+</tr>
+<tr>
+<td><code>10050</code></td>
+<td>Timestamp expired (&gt;60s old)</td>
+</tr>
+<tr>
+<td><code>10081</code></td>
+<td>Invalid request / version mismatch</td>
+</tr>
+</tbody></table>
+<hr />
+<h2 id="order-status-codes">Order Status Codes</h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>102</code></td>
+<td>Created / transitioning (transient state observed between order creation and <code>109</code>)</td>
+</tr>
+<tr>
+<td><code>103</code></td>
+<td>Running (machine active)</td>
+</tr>
+<tr>
+<td><code>104</code></td>
+<td>Completed (paid, run finished) — <code>actualPrice</code> field present in order object</td>
+</tr>
+<tr>
+<td><code>105</code></td>
+<td>Cancelled</td>
+</tr>
+<tr>
+<td><code>106</code></td>
+<td>Completed</td>
+</tr>
+<tr>
+<td><code>109</code></td>
+<td>Pending payment</td>
+</tr>
+<tr>
+<td><code>111</code></td>
+<td>Verified / awaiting payment confirmation (after <code>order.vertify</code> succeeds, before Paytm payment completes)</td>
+</tr>
+</tbody></table>
+<hr />
+<h2 id="phone-number-format">Phone Number Format</h2>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">plaintext</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-plaintext">[4-digit zero-padded country code][phone number]</code></pre>
+                </div>
+            <p>Examples: India (91) → <code>0091</code> + <code>9876543210</code> = <code>00919876543210</code></p>
+<p>Use <code>user.queryCountryList</code> to get country codes.</p>
+<hr />
+<h2 id="authentication">Authentication</h2>
+<p><code>tokenId</code> is returned by <code>user.login</code>. It is <strong>account-specific and persistent</strong> (does not expire per session). Pass empty string <code>""</code> for unauthenticated APIs.</p>
+<hr />
+<h1 id="apis">APIs</h1>
+<hr />
+<h2 id="user">User</h2>
+<hr />
+<h3 id="userquerycountrylist"><code>user.queryCountryList</code></h3>
+<p><strong>Path:</strong> <code>/common/user/queryCountryList.api</code><br /><strong>Auth:</strong> No<br /><strong>Payload:</strong> <code>{}</code></p>
+<p><strong>Response (decrypted, array):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"IN"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"enname"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"India"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">900077</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"regexinfo"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"^[0-9]*$"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"regionCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0091"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"zhname"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"भारत"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span></code></pre>
+                </div>
+            <p><code>regexinfo</code>: regex pattern for validating phone number input for this region<br /><code>regionCode</code>: 4-digit zero-padded dialling prefix, used as the phone number prefix in all API calls</p>
+<hr />
+<h3 id="userlogin"><code>user.login</code></h3>
+<p><strong>Path:</strong> <code>/common/user/login.api</code><br /><strong>Auth:</strong> No (tokenId = <code>""</code>)</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"deviceType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"password"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;plain_text_password&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;formatted_phone&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verifyCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"osVersion"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"51"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"channelId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"androidUserId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"null"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>All fields required. <code>verifyCode</code> is empty string for password-based login.</strong></p>
+<p><strong>Response (decrypted):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"avatarURL"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"email"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"user@example.com"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00911234567890"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"tokenId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;base64_token&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"userId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;user_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"userName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;display_name&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <hr />
+<h3 id="usercancelaccount"><code>user.cancelAccount</code></h3>
+<p><strong>Path:</strong> <code>/api/user/cancelAccount.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong> <code>{}</code></p>
+<p>No response captured. Called as the final step of the account deletion flow, after OTP verification via <code>user.checkVerifyCode</code> (type <code>"3"</code>).</p>
+<p><strong>Account deletion flow:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">plaintext</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-plaintext">1. user.requestVerifyCode  {"phoneNumber": "&lt;phone&gt;", "type": "3"}  → null
+2. user.checkVerifyCode    {"phoneNumber": "&lt;phone&gt;", "verifyCode": "&lt;otp&gt;", "type": "3"}
+3. user.cancelAccount      {}</code></pre>
+                </div>
+            <p><strong>Note on re-registration after deletion:</strong> Attempting to register with the same phone number immediately after <code>cancelAccount</code> results in repeated failures at the <code>checkVerifyCode</code> → <code>register</code> step (observed: 3 consecutive retries). The <code>user.checkPhoneOrEmail</code> call made during registration will flag the number as already in use if the server has not yet processed the deletion. There is an observed delay before the server allows re-registration with the same credentials.</p>
+<hr />
+<h3 id="userrestoreaccount"><code>user.restoreAccount</code></h3>
+<p><strong>Path:</strong> Unknown<br /><strong>Auth:</strong> Unknown<br /><strong>Payload:</strong> Unknown</p>
+<hr />
+<h3 id="usergetprofile"><code>user.getProfile</code></h3>
+<p><strong>Path:</strong> <code>/api/user/getProfile.api</code><br /><strong>Auth:</strong> Yes<br /><strong>Payload:</strong> <code>{}</code></p>
+<p><strong>Response (decrypted):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"avatar"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"desensitizationMailNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"s****m@gmail.com"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"email"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"user@example.com"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"hotLine"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isHavepwd"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isReceiveMessage"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00911234567890"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"userId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;user_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"userName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;display_name&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>isHavepwd</code>: boolean, whether the account has a password set<br /><code>isReceiveMessage</code>: <code>"T"</code> = notifications enabled, <code>"F"</code> = disabled<br /><code>desensitizationMailNumber</code>: masked email address</p>
+<hr />
+<h3 id="usercheckphoneoremail"><code>user.checkPhoneOrEmail</code></h3>
+<p><strong>Path:</strong> <code>/common/user/checkPhoneOrEmail.api</code><br /><strong>Auth:</strong> No<br /><strong>Payload:</strong> Unknown</p>
+<p>Called during the registration flow immediately before <code>user.requestVerifyCode</code>. Presumably validates whether the supplied phone number or email is already associated with an existing account. Called again on re-registration attempt after account deletion — consistent with a server-side duplicate check.</p>
+<hr />
+<h3 id="userregister"><code>user.register</code></h3>
+<p><strong>Path:</strong> <code>/common/user/register.api</code><br /><strong>Auth:</strong> No<br /><strong>Payload:</strong> Unknown</p>
+<p>Called after <code>user.checkVerifyCode</code> in the registration flow. On success, the app immediately calls <code>user.login</code>.</p>
+<p><strong>Registration flow:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">plaintext</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-plaintext">1. user.queryCountryList     {} (no auth)
+2. user.checkPhoneOrEmail    (no auth) — duplicate check
+3. user.requestVerifyCode    {"phoneNumber": "&lt;phone&gt;", "type": "&lt;type&gt;"} → null
+4. user.checkVerifyCode      {"phoneNumber": "&lt;phone&gt;", "verifyCode": "&lt;otp&gt;", "type": "&lt;type&gt;"}
+5. user.register             (no auth)
+6. user.login                (no auth) → tokenId</code></pre>
+                </div>
+            <hr />
+<p><strong>Path:</strong> <code>/common/user/getLatestVersion.api</code><br /><strong>Auth:</strong> Optional</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"osType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>osType</code>: <code>"2"</code> = Android</p>
+<hr />
+<h3 id="userrequestverifycode"><code>user.requestVerifyCode</code></h3>
+<p><strong>Path:</strong> <code>/common/user/requestVerifyCode.api</code><br /><strong>Auth:</strong> No</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;formatted_phone&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"3"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>type</code>: <code>"3"</code> = password reset and account deletion (same OTP flow for both), <code>"1"</code> = registration (unverified)</p>
+<p><strong>Response (decrypted):</strong> <code>null</code></p>
+<hr />
+<h3 id="usercheckverifycode"><code>user.checkVerifyCode</code></h3>
+<p><strong>Path:</strong> <code>/common/user/checkVerifyCode.api</code><br /><strong>Auth:</strong> No</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;formatted_phone&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verifyCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;otp&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"3"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <hr />
+<h3 id="userretrievepassword"><code>user.retrievePassword</code></h3>
+<p><strong>Path:</strong> <code>/common/user/retrievePassword.api</code><br /><strong>Auth:</strong> No</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"password"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;new_plain_text_password&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"phoneNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;formatted_phone&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"verifyCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;otp&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>verifyCode</code> must match the one sent via <code>user.requestVerifyCode</code>.</p>
+<hr />
+<h3 id="usersetmessagenotification"><code>user.setMessageNotification</code></h3>
+<p><strong>Path:</strong> <code>/api/user/setMessageNotification.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"isReceive"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>isReceive</code>: <code>"T"</code> = enable, <code>"F"</code> = disable</p>
+<hr />
+<h3 id="usergetcouponlist"><code>user.getCouponList</code></h3>
+<p><strong>Path:</strong> <code>/api/user/getCouponList.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload (general):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isExpired"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"N"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Payload (device-specific):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"washCoupon"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isExpired"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"N"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>isExpired</code>: <code>"N"</code> = valid coupons, <code>"Y"</code> = expired</p>
+<hr />
+<h3 id="usergetcouponcount"><code>user.getCouponCount</code></h3>
+<p><strong>Path:</strong> <code>/api/user/getCouponCount.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"washCoupon"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response (decrypted):</strong> <code>0</code> (integer, count of available coupons)</p>
+<hr />
+<hr />
+<h2 id="laundry">Laundry</h2>
+<hr />
+<h3 id="laundrygetnearbylaundrylist"><code>laundry.getNearbyLaundryList</code></h3>
+<p><strong>Path:</strong> <code>/common/laundry/getNearbyLaundryList.api</code><br /><strong>Auth:</strong> Optional</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"distance"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"50000"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;decimal_degrees&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;decimal_degrees&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>distance</code>: radius in meters. The app always sends <code>"50000"</code> (hardcoded).<br /><code>type</code>: <code>"1"</code> = washers, <code>"2"</code> = dryers<br /><code>pageNumber</code>: starts at <code>"1"</code>, paginated (10 results per page observed)</p>
+<p><strong>Response (decrypted, array):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"distance"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"5m"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"laundry"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"address"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"VNIT NAGPUR"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"businessStatus"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"floorNumbers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"00"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"21.123242"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"laundryId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1181"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"79.051513"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"VNIT NAGPUR - SWAMINATHAN"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"spareDeviceNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"weekEndTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"23:59"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"weekStartTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00:00"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"workEndTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"23:59"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"workStartTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00:00"</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span></code></pre>
+                </div>
+            <p><code>distance</code>: string with unit suffix (e.g. <code>"5m"</code>)<br /><code>spareDeviceNumber</code>: number of available machines (string)<br />Note: <code>businessId</code>, <code>hotLine</code>, and <code>payWindowTotalTime</code> are absent from this response; use <code>laundry.getLaundryDetail</code> to retrieve them.</p>
+<hr />
+<h3 id="laundrygetlaundrydetail"><code>laundry.getLaundryDetail</code></h3>
+<p><strong>Path:</strong> <code>/common/laundry/getLaundryDetail.api</code><br /><strong>Auth:</strong> Optional</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"laundryId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;laundry_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response includes:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"address"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"VNIT NAGPUR"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"businessId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"4"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"businessStatus"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"floorNumbers"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">"00"</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"hotLine"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"18001029999"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"latitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"21.123242"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"laundryId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1181"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"longitude"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"79.051513"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"VNIT NAGPUR - SWAMINATHAN"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"payWindowTotalTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"10"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"spareDeviceNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"weekEndTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"23:59"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"weekStartTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00:00"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"workEndTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"23:59"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"workStartTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00:00"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>payWindowTotalTime</code>: minutes to complete payment after booking<br /><code>spareDeviceNumber</code>: number of available machines</p>
+<hr />
+<h3 id="laundrygetlaundrydevicelist"><code>laundry.getLaundryDeviceList</code></h3>
+<p><strong>Path:</strong> <code>/common/laundry/getLaundryDeviceList.api</code><br /><strong>Auth:</strong> Optional</p>
+<p><strong>Payload (all floors):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"laundryId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;laundry_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Payload (specific floor):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"floorNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"laundryId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;laundry_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>floorNumber</code>: zero-padded floor string e.g. <code>"00"</code>, <code>"01"</code></p>
+<hr />
+<h3 id="laundrygetdeviceinfo"><code>laundry.getDeviceInfo</code></h3>
+<p><strong>Path:</strong> <code>/common/laundry/getDeviceInfo.api</code><br /><strong>Auth:</strong> Optional</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response includes:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"capacity"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"8"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"currentRunModeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"97"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"3801"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"location"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"KCE-CBE-LH D&amp;G"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"model"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"HW100-IM10636IOT"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"moduleType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"4gmodule"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"8kgwifi drum washer 01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"runMode"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"STANDARD"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"isDisply"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeFeature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Use normal cycle for normal items with cold water."</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"94"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeImage"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"http://img.mrhiwash.com//runmodel/13.png"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Normal"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"49.00"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"timeDuration"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"40"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"FAST"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"isDisply"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"95"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Quick"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"39.00"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"timeDuration"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"25"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"SINGLE"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"isDisply"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"97"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Spin"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"timeDuration"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"TNK_CLN"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"isDisply"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"F"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"109"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"modeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Tub cleaning"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0.00"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"timeDuration"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6"</span>
+    <span class="hljs-punctuation">}</span>
+  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"serialNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00F-U01"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"supportsCleaning"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"timeRemaining"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1030"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"typeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"8KG Wifi Drum washing machine"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Confirmed modeId → program mapping:</strong></p>
+<table>
+<thead>
+<tr>
+<th>modeId</th>
+<th>code</th>
+<th>name</th>
+<th>duration</th>
+<th>price (₹)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>94</code></td>
+<td><code>STANDARD</code></td>
+<td>Normal</td>
+<td>40 min</td>
+<td>49.00</td>
+</tr>
+<tr>
+<td><code>95</code></td>
+<td><code>FAST</code></td>
+<td>Quick</td>
+<td>25 min</td>
+<td>39.00</td>
+</tr>
+<tr>
+<td><code>97</code></td>
+<td><code>SINGLE</code></td>
+<td>Spin</td>
+<td>6 min</td>
+<td>6.00</td>
+</tr>
+<tr>
+<td><code>109</code></td>
+<td><code>TNK_CLN</code></td>
+<td>Tub cleaning</td>
+<td>6 min</td>
+<td>0.00</td>
+</tr>
+</tbody></table>
+<p><strong>Device status values:</strong></p>
+<table>
+<thead>
+<tr>
+<th>status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>"1"</code></td>
+<td>Offline / Unavailable</td>
+</tr>
+<tr>
+<td><code>"2"</code></td>
+<td>Available / Idle</td>
+</tr>
+<tr>
+<td><code>"3"</code></td>
+<td>In use / Running</td>
+</tr>
+</tbody></table>
+<hr />
+<hr />
+<h2 id="order">Order</h2>
+<hr />
+<h3 id="orderreserve"><code>order.reserve</code></h3>
+<p><strong>Path:</strong> <code>/api/order/reserve.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;mode_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderesource"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>orderesource</code>: always <code>"1"</code> (observed)<br />Note: field name is <code>orderesource</code> (not <code>orderSource</code>)</p>
+<hr />
+<h3 id="orderorderdevice"><code>order.orderDevice</code></h3>
+<p><strong>Path:</strong> <code>/api/order/orderDevice.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;mode_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isRq"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderesource"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"runCount"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>runCount</code>: number of cycles<br /><code>isRq</code>: always <code>"1"</code> (observed)</p>
+<hr />
+<h3 id="ordergetuserorderlist"><code>order.getUserOrderList</code></h3>
+<p><strong>Path:</strong> <code>/api/order/getUserOrderList.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"pageNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response (decrypted, array):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"actualPrice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.0"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"currencySymbol"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"₹"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"deviceList"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+      <span class="hljs-attr">"currentRunModeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"97"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"deviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"3799"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"8kgwifi drum washer 02"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"serialNumber"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"00F-U02"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"timeRemaining"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"3"</span><span class="hljs-punctuation">,</span>
+      <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1030"</span>
+    <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"orderCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"12026021812514875"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"12514875"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"orderStatus"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"104"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"salePrice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"start"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span></code></pre>
+                </div>
+            <p><code>start</code>: <code>true</code> = machine currently running, <code>false</code> = not running<br /><code>actualPrice</code>: present only on orders with status <code>104</code> (post-completion); absent on pending/cancelled orders<br /><code>deviceList.currentRunModeId</code>: absent when device has no active/recent run mode (e.g. status <code>"1"</code> devices)</p>
+<hr />
+<h3 id="ordergetorderdetail"><code>order.getOrderDetail</code></h3>
+<p><strong>Path:</strong> <code>/api/order/getOrderDetail.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response:</strong> Full order object. Confirmed fields:</p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"actualName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Paytm"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"actualPrice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"coupunName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"coupunPrice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"currencySymbol"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"₹"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"deviceInfo"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span> <span class="hljs-attr">"..."</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"see laundry.getDeviceInfo"</span> <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"hotLine"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"isCleaningComplete"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"F"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"12026021812514875"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"12514875"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderStatus"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"103"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"20260217201735"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"payWindowRemainingTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"526"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"runCount"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"runMode"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"code"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"SINGLE"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"isDisply"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"T"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"modeFeature"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Spin only"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"modeId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"97"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"modeName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Spin"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"price"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"timeDuration"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6"</span>
+  <span class="hljs-punctuation">}</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"salePrice"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"start"</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>payWindowRemainingTime</code>: seconds remaining to pay (string)<br /><code>orderTime</code>: format <code>yyyyMMddHHmmss</code><br /><code>isCleaningComplete</code>: <code>"F"</code> = not complete, <code>"T"</code> = complete<br /><code>start</code>: boolean, <code>true</code> = machine currently running<br /><code>actualName</code> / <code>actualPrice</code>: payment method name and amount charged; only present after payment is confirmed<br /><code>actualPrice</code> is also present on list items in <code>order.getUserOrderList</code> for status <code>104</code> orders</p>
+<hr />
+<h3 id="ordercancelorder"><code>order.cancelOrder</code></h3>
+<p><strong>Path:</strong> <code>/api/order/cancelOrder.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <hr />
+<h3 id="ordersendverifycodetodevice"><code>order.sendVerifyCodeToDevice</code></h3>
+<p><strong>Path:</strong> <code>/api/order/sendVerifyCodeToDevice.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p>Sends OTP to machine display.</p>
+<p><strong>Response (decrypted):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"vertifiedCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"0000"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p>The OTP code to be confirmed on the physical machine display is returned directly in this response.</p>
+<hr />
+<h3 id="ordervertify"><code>order.vertify</code></h3>
+<p><strong>Path:</strong> <code>/api/order/vertify.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"vertifiedCode"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;otp_from_machine&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p>Note: field name is <code>vertifiedCode</code> and method is <code>vertify</code> (server-side spelling, not a typo here)</p>
+<hr />
+<h3 id="orderorderpaymode"><code>order.orderPayMode</code></h3>
+<p><strong>Path:</strong> <code>/api/order/orderPayMode.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"deviceType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong><code>type</code> determines which payment options are returned:</strong></p>
+<ul>
+<li><code>"1"</code> → Returns Paytm option</li>
+<li><code>"2"</code> → Returns Coupon option</li>
+</ul>
+<p><strong>Response (<code>type:"1"</code>):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"activityname"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Paytm"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"displyName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Paytm"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"imgUrl"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"http://img.mrhiwash.com//merchant/84876.png"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span></code></pre>
+                </div>
+            <p><strong>Response (<code>type:"2"</code>):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">[</span>
+  <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"activityname"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">""</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"description"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Coupon传帮"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"displyName"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Coupon"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"id"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"imgUrl"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"http://img.mrhiwash.com//merchant/84877.png"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">]</span></code></pre>
+                </div>
+            <hr />
+<h3 id="orderstartcleanprogram"><code>order.startCleanProgram</code></h3>
+<p><strong>Path:</strong> <code>/api/order/startCleanProgram.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p>Starts machine after payment confirmed.  </p>
+<p><strong>Response (decrypted):</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"remainingTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">6</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>remainingTime</code>: integer, minutes remaining for the cycle.
+in app it just runs local coutndown from 6 min ,no polling for this.</p>
+<hr />
+<h3 id="ordergetdeviceendruntimebyorderid"><code>order.getDeviceEndRuntimeByOrderId</code></h3>
+<p><strong>Path:</strong> <code>/api/order/getDeviceEndRuntimeByOrderId.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"status"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">103</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"remainingTime"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>remainingTime</code>: string, minutes remaining<br /><code>status</code>: integer order status code. Observed values: <code>109</code> (pending payment, pre-start), <code>103</code> (running).</p>
+<blockquote>
+<p>App polls this endpoint continuously while machine is running.<br /><strong>Polling stop condition:</strong> Stop on <code>remainingTime == "0"</code> <strong>or</strong> <code>status != 103</code>. as prior condition can be missed between poll intervals — status change to <code>104</code>/<code>106</code> is the reliable completion signal.</p>
+</blockquote>
+<hr />
+<hr />
+<h2 id="payment">Payment</h2>
+<hr />
+<h3 id="paygetprepay"><code>pay.getPrepay</code></h3>
+<p><strong>Path:</strong> <code>/api/pay/getPrepay.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"phoneType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"2"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"payType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderDeviceId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;device_id&gt;"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>phoneType</code>: <code>"2"</code> = Android 
+<code>payType</code>: <code>"1"</code> = Paytm</p>
+<p><strong>Response:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"payType"</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"prepayInfo"</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">{</span>
+    <span class="hljs-attr">"CUST_ID"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"MRHI&lt;user_id&gt;"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"CHANNEL_ID"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"WAP"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"ORDER_ID"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_code&gt;"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"TXN_AMOUNT"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"6.00"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"CALLBACK_URL"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"https://securegw.paytm.in/theia/paytmCallback?ORDER_ID=&lt;order_code&gt;"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"TXN_TOKEN"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;paytm_txn_token&gt;"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"MID"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"HaierI99999377000796"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"INDUSTRY_TYPE_ID"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"Retail102"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"CHECKSUMHASH"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;checksum&gt;"</span><span class="hljs-punctuation">,</span>
+    <span class="hljs-attr">"WEBSITE"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"APPPROD"</span>
+  <span class="hljs-punctuation">}</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><code>prepayInfo</code> fields are Paytm gateway parameters. <code>TXN_TOKEN</code> and <code>CHECKSUMHASH</code> are generated server-side per transaction.</p>
+<hr />
+<h3 id="payqueryorderpaysuccess"><code>pay.queryOrderPaySuccess</code></h3>
+<p><strong>Path:</strong> <code>/api/pay/queryOrderPaySuccess.api</code><br /><strong>Auth:</strong> Yes</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"payType"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"orderId"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"&lt;order_id&gt;"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <p><strong>Response:</strong> nothing, it acts like ping to server, as reminder if payment recived on server side start the machine</p>
+<hr />
+<hr />
+<h2 id="common">Common</h2>
+<hr />
+<h3 id="commonquerynewfocuslist"><code>common.queryNewFocusList</code></h3>
+<p><strong>Path:</strong> <code>/common/common/queryNewFocusList.api</code><br /><strong>Auth:</strong> No</p>
+<p><strong>Payload:</strong></p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">json</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
+  <span class="hljs-attr">"type"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"1"</span>
+<span class="hljs-punctuation">}</span></code></pre>
+                </div>
+            <hr />
+<h3 id="commonquaryshowmodule"><code>common.quaryShowModule</code></h3>
+<p><strong>Path:</strong> <code>/common/common/quaryShowModule.api</code><br /><strong>Auth:</strong> No<br /><strong>Payload:</strong> <code>{}</code></p>
+<hr />
+<h3 id="commonquaryshowinvitation"><code>common.quaryShowInvitation</code></h3>
+<p><strong>Path:</strong> <code>/common/common/quaryShowInvitation.api</code><br /><strong>Auth:</strong> No<br /><strong>Payload:</strong> <code>{}</code></p>
+<hr />
+<h2 id="complete-booking-flow">Complete Booking Flow</h2>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">plaintext</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-plaintext">1. laundry.getNearbyLaundryList   → find laundries
+2. laundry.getLaundryDetail       → laundry info + payWindowTotalTime
+3. laundry.getLaundryDeviceList   → list machines
+4. laundry.getDeviceInfo          → device status + available runModes + prices
+5. order.orderDevice              → create order (status: 109)
+   └─ payWindowTotalTime starts (10 min window)
+6. order.sendVerifyCodeToDevice   → response contains vertifiedCode OTP
+7. order.vertify                  → confirm OTP (order status transitions to 111)
+8. order.getOrderDetail           → fetch updated order (status: 111)
+9. order.orderPayMode (type:"1")  → get payment options
+10. pay.getPrepay                 → get Paytm payment params
+    └─ complete payment via Paytm gateway (external)
+11. pay.queryOrderPaySuccess      → confirm payment (status: 103 = running)
+12. order.getDeviceEndRuntimeByOrderId  → poll remaining time (status: 103 while running)
+    └─ poll until remainingTime = "0"</code></pre>
+                </div>
+            <h2 id="tub-clean-flow-free-no-payment">Tub Clean Flow (free, no payment)</h2>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">1. order.orderDevice     (modeId for TNK_CLN, price: 0.00)</span>
+                        <button class="copy-button" onclick="copyToClipboard(this)" title="Copy to clipboard">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <pre><code class="hljs language-plaintext">2. order.sendVerifyCodeToDevice
+3. order.vertify
+4. order.startCleanProgram   ← starts immediately, no payment step
+5. poll getDeviceEndRuntimeByOrderId</code></pre>
+                </div>
+            <hr />
+<h2 id="remaining-apis">remaining APIs</h2>
+<p>The following APIs exist in the app but payloads were not captured:</p>
+<ul>
+<li><code>user.checkPhoneOrEmail</code> (path confirmed, payload unknown)</li>
+<li><code>user.register</code> (path confirmed, payload unknown)</li>
+<li><code>user.updateUserEmail</code> (yet to be capture)</li>
+<li><code>user.updatePwd</code>  (yet to be capture)</li>
+<li><code>user.updateUserName</code> (yet to be capture)</li>
+<li><code>user.updateAvatarImage</code> (yet to be capture, crashes my app :( )</li>
+<li><code>user.restoreAccount</code> (yet to be capture)</li>
+<li><code>message.queryAllAppMessage</code> (yet to be capture)</li>
+<li><code>message.queryAppMessageById</code> (yet to be capture)</li>
+<li><code>order.orderWithCoupon</code> (mostly obsolete ,yet to be capture)</li>
+<li><code>order.startDevice</code> (yet to be capture)</li>
+<li><code>order.resetDevice</code> (yet to be capture)</li>
+<li><code>alipay.alipayTradeQuery</code> (obsolete)</li>
+<li><code>common.analysisURL</code>(obsolete)</li>
+<li><code>appAd.getAppAdInfo</code> (obsolete)</li>
+</ul>
+<h2 id="end">End</h2>
+<p>There might be typos, mistakes please do report them to make docs better.
+have used ai tools(makise) to <em>assist</em> in generate docs from network captures , and logs collected,though i dont have life ,i still wont write 1111 lines.<br /></p>
+<p>good bye.</p>
+<p><img src="https://images.steamusercontent.com/ugc/856102610093965022/D0672195B31FC9ADF3C65F55EA0FDA00324D7A47/?imw=5000&amp;imh=5000&amp;ima=fit&amp;impolicy=Letterbox&amp;imcolor=%23000000&amp;letterbox=false" alt="sayonara" /></p>
+
+</body>
+</html>
